@@ -124,7 +124,9 @@ let trucksOut = [];
 async function fetchData(type) {
   const res = await fetch(`${API_BASE}?type=${type}`);
   if (!res.ok) throw new Error(`Failed to load ${type}`);
-  return res.json();
+  const text = await res.text();
+  if (!text || !text.trim()) return [];
+  return JSON.parse(text);
 }
 
 function showError(msg) {
