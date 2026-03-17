@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HSA — Truck Log</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+  <!-- Header -->
+  <div class="bg-[#1E3A5F] text-white px-4 py-4 sticky top-0 z-10 shadow-md">
+    <p class="text-xs text-amber-400 font-semibold tracking-widest uppercase">HSA Drilling & Excavation</p>
+    <h1 class="text-xl font-bold mt-0.5">Truck Log</h1>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="fixed inset-0 bg-white/80 flex items-center justify-center z-50">
+    <div class="text-center">
+      <div class="inline-block w-10 h-10 border-4 border-[#1E3A5F] border-t-transparent rounded-full animate-spin"></div>
+      <p class="mt-3 text-gray-600 text-sm">Loading truck data...</p>
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div id="error-banner" class="hidden bg-red-50 border-l-4 border-red-500 mx-4 mt-4 p-3 rounded text-sm text-red-700"></div>
+
+  <!-- Success screen -->
+  <div id="success-screen" class="hidden fixed inset-0 bg-white flex flex-col items-center justify-center p-6 z-50">
+    <div class="text-6xl mb-4">✅</div>
+    <h2 class="text-2xl font-bold text-[#1E3A5F] mb-2" id="success-title">Logged!</h2>
+    <p id="success-msg" class="text-gray-600 text-center mb-6"></p>
+    <p class="text-sm text-gray-400">You can close this window.</p>
+  </div>
+
+  <!-- Form -->
+  <form id="truck-form" class="max-w-lg mx-auto px-4 py-6 space-y-6" novalidate>
+
+    <!-- Action Toggle -->
+    <div class="bg-white rounded-xl shadow-sm p-4">
+      <label class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Action</label>
+      <div class="flex gap-3">
+        <label class="flex-1">
+          <input type="radio" name="action" value="checkout" id="action-out" class="sr-only peer" checked />
+          <div class="peer-checked:bg-amber-500 peer-checked:text-white peer-checked:border-amber-500 border-2 border-gray-300 rounded-lg py-3 text-center text-sm font-bold text-gray-600 cursor-pointer transition-all">
+            🚛 CHECK OUT
+          </div>
+        </label>
+        <label class="flex-1">
+          <input type="radio" name="action" value="checkin" id="action-in" class="sr-only peer" />
+          <div class="peer-checked:bg-green-600 peer-checked:text-white peer-checked:border-green-600 border-2 border-gray-300 rounded-lg py-3 text-center text-sm font-bold text-gray-600 cursor-pointer transition-all">
+            🏁 CHECK IN
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- CHECK OUT fields -->
+    <div id="checkout-fields" class="space-y-4">
+
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <label class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Select Truck</label>
+        <select id="truck-out-select" name="truck_out"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]">
+          <option value="">Select available truck...</option>
+        </select>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <label class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Driver</label>
+        <select id="driver-select" name="driver"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]">
+          <option value="">Select driver...</option>
+        </select>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <label for="destination" class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Destination / Purpose</label>
+        <input type="text" id="destination" name="destination"
+          placeholder="e.g. RFK Stadium Gate B — Site 3"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]" />
+      </div>
+
+    </div>
+
+    <!-- CHECK IN fields -->
+    <div id="checkin-fields" class="hidden space-y-4">
+
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <label class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Select Returning Truck</label>
+        <div id="trucks-out-list" class="space-y-2">
+          <p class="text-sm text-gray-400 italic">Loading checked-out trucks...</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm p-4">
+        <label for="checkin-notes" class="block text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">Mileage / Notes</label>
+        <textarea id="checkin-notes" name="checkin_notes" rows="3"
+          placeholder="Odometer reading, condition, any issues..."
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E3A5F] resize-none"></textarea>
+      </div>
+
+    </div>
+
+    <!-- Submit -->
+    <button type="submit" id="submit-btn"
+      class="w-full bg-[#1E3A5F] text-white font-bold py-4 rounded-xl text-base shadow-lg active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed">
+      Submit Truck Log
+    </button>
+
+    <p class="text-center text-xs text-gray-400 pb-4">HSA Drilling & Excavation · Field Operations</p>
+  </form>
+
+<script>
+const API_BASE = 'https://n8n.srv1498466.hstgr.cloud/webhook/hsa-form-data';
+const TRUCK_ENDPOINT = 'https://n8n.srv1498466.hstgr.cloud/webhook/hsa-truck';
+
+const params = new URLSearchParams(window.location.search);
+const CHAT_ID = params.get('chat_id') || '';
+
+let trucksAvailable = [];
+let trucksOut = [];
+
+async function fetchData(type) {
+  const res = await fetch(`${API_BASE}?type=${type}`);
+  if (!res.ok) throw new Error(`Failed to load ${type}`);
+  return res.json();
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderTrucksOutList(trucks) {
+  const container = document.getElementById('trucks-out-list');
+  if (!trucks.length) {
+    container.innerHTML = '<p class="text-sm text-gray-400 italic">No trucks currently checked out.</p>';
+    return;
+  }
+  container.innerHTML = trucks.map(t => `
+    <label class="block">
+      <input type="radio" name="truck_in" value="${t.a_id}" class="sr-only peer" />
+      <div class="peer-checked:bg-[#1E3A5F] peer-checked:text-white peer-checked:border-[#1E3A5F] border-2 border-gray-200 rounded-lg px-3 py-2.5 cursor-pointer transition-all">
+        <p class="font-semibold text-sm">${t.a_id} — ${t.equipment_name || t.a_id}</p>
+        <p class="text-xs opacity-75 mt-0.5">Out since: ${t.date_out || 'unknown'} · ${t.destination || 'no destination'}</p>
+      </div>
+    </label>
+  `).join('');
+}
+
+// Action toggle
+document.getElementById('action-out').addEventListener('change', () => {
+  document.getElementById('checkout-fields').classList.remove('hidden');
+  document.getElementById('checkin-fields').classList.add('hidden');
+  document.getElementById('submit-btn').textContent = 'Submit Truck Log';
+});
+document.getElementById('action-in').addEventListener('change', () => {
+  document.getElementById('checkin-fields').classList.remove('hidden');
+  document.getElementById('checkout-fields').classList.add('hidden');
+  document.getElementById('submit-btn').textContent = 'Submit Check-In';
+});
+
+async function init() {
+  try {
+    const [available, out, crew] = await Promise.all([
+      fetchData('trucks_available'),
+      fetchData('trucks_out'),
+      fetchData('crew')
+    ]);
+
+    trucksAvailable = available;
+    trucksOut = out;
+
+    // Populate available trucks dropdown
+    const truckSel = document.getElementById('truck-out-select');
+    if (available.length === 0) {
+      truckSel.innerHTML = '<option value="">No trucks available</option>';
+    } else {
+      available.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t.a_id;
+        opt.textContent = `${t.a_id} — ${t.equipment_name}`;
+        truckSel.appendChild(opt);
+      });
+    }
+
+    // Populate driver dropdown
+    const driverSel = document.getElementById('driver-select');
+    crew.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.u_id;
+      opt.textContent = `${c.u_id} — ${c.name}`;
+      driverSel.appendChild(opt);
+    });
+
+    // Render trucks out list
+    renderTrucksOutList(out);
+
+    document.getElementById('loading-overlay').classList.add('hidden');
+  } catch (e) {
+    document.getElementById('loading-overlay').classList.add('hidden');
+    showError('Failed to load truck data. Check your connection and reload.');
+  }
+}
+
+document.getElementById('truck-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+
+  const action = (document.querySelector('input[name="action"]:checked') || {}).value;
+
+  let payload = { chat_id: CHAT_ID, action };
+
+  if (action === 'checkout') {
+    const a_id = document.getElementById('truck-out-select').value;
+    const u_id = document.getElementById('driver-select').value;
+    const destination = document.getElementById('destination').value.trim();
+    if (!a_id) return showError('Please select a truck to check out.');
+    if (!u_id) return showError('Please select a driver.');
+    if (!destination) return showError('Please enter a destination or purpose.');
+    payload = { ...payload, a_id, u_id, destination, notes: '' };
+  } else {
+    const truck_in = (document.querySelector('input[name="truck_in"]:checked') || {}).value;
+    const notes = document.getElementById('checkin-notes').value.trim();
+    if (!truck_in) return showError('Please select the truck checking in.');
+    payload = { ...payload, a_id: truck_in, u_id: '', destination: '', notes };
+  }
+
+  document.getElementById('error-banner').classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    const res = await fetch(TRUCK_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
+
+    const isOut = action === 'checkout';
+    document.getElementById('success-title').textContent = isOut ? '🚛 Truck Checked Out!' : '🏁 Truck Checked In!';
+    document.getElementById('success-msg').textContent = isOut
+      ? `Truck ${payload.a_id} checked out to ${payload.destination}`
+      : `Truck ${payload.a_id} checked back in successfully.`;
+    document.getElementById('success-screen').classList.remove('hidden');
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = action === 'checkin' ? 'Submit Check-In' : 'Submit Truck Log';
+    showError(`Submission failed: ${err.message}. Please try again.`);
+  }
+});
+
+init();
+</script>
+</body>
+</html>
